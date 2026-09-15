@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E1B24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Panel eco">
+<meta name="robots" content="noindex, nofollow">
+<title>Panel de imagenología veterinaria</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+/* ============================================================
+   Mobile first: la base es el teléfono. Los @media min-width
+   van agregando columnas a medida que hay ancho disponible.
+   ============================================================ */
+:root{
+  --ink:#0E1B24; --panel:#FFFFFF; --bg:#EDF1F2; --line:#D3DDE0;
+  --text:#132229; --muted:#5E7480; --scan:#1FA8A0; --scan-deep:#0F6E6C;
+  --warm:#E8A33D; --radius:10px;
+  --pad:16px;
+  --tap:44px;              /* alto mínimo táctil */
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--text);
+  font-family:"Inter Tight",system-ui,-apple-system,sans-serif;
+  font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+h1,h2{font-family:"Bricolage Grotesque","Inter Tight",sans-serif;margin:0;font-weight:600;letter-spacing:-.01em}
+button{font-family:inherit}
+:focus-visible{outline:2px solid var(--scan);outline-offset:2px}
+
+/* Inputs a 16px: por debajo de eso iOS hace zoom al enfocar. */
+input,select,textarea{font-size:16px;font-family:inherit}
+
+/* ---------------- Login ---------------- */
+#login{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:24px;
+  background:radial-gradient(120% 90% at 50% 0%,#17313B 0%,var(--ink) 60%)}
+.login-card{width:100%;max-width:360px}
+.cone{display:block;margin:0 auto 24px;width:78px;height:78px}
+.login-card h1{color:#fff;font-size:24px;margin-bottom:4px}
+.login-card p.sub{color:#7E99A2;margin:0 0 22px;font-size:14px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:13px;color:#9DB4BC;margin-bottom:5px}
+.field input{width:100%;min-height:var(--tap);padding:11px 12px;border-radius:8px;
+  border:1px solid #2C4652;background:#0B1820;color:#fff}
+#loginBtn{width:100%;margin-top:8px}
+#loginError{color:#F0805E;font-size:13px;min-height:18px;margin-top:10px}
+
+/* ---------------- Botones ---------------- */
+.btn{border:none;border-radius:8px;min-height:var(--tap);padding:11px 16px;font-size:15px;
+  font-weight:600;background:var(--scan);color:#04201F;cursor:pointer}
+.btn:disabled{opacity:.5;cursor:default}
+.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--text);font-weight:500}
+@media (hover:hover){
+  .btn:hover{background:#26BDB4}
+  .btn-ghost:hover{background:#E7EDEE}
+}
+
+/* ---------------- Estructura ---------------- */
+#app{display:none;max-width:1180px;margin:0 auto;padding:0 var(--pad) 56px}
+
+header.top{display:flex;flex-direction:column;gap:12px;
+  padding:18px 0 14px;border-bottom:1px solid var(--line);margin-bottom:16px}
+header.top h1{font-size:20px}
+header.top .who{color:var(--muted);font-size:13px}
+header.top .acciones{display:flex;gap:8px}
+header.top .acciones .btn{flex:1;padding:10px 12px;font-size:14px}
+
+/* Filtros rápidos: fila deslizable en móvil */
+.chips{display:flex;gap:8px;margin-bottom:14px;overflow-x:auto;
+  padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;border:1px solid var(--line);background:var(--panel);border-radius:999px;
+  padding:9px 15px;font-size:13.5px;color:var(--muted);cursor:pointer;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--scan-deep);border-color:var(--scan-deep);color:#fff}
+@media (hover:hover){.chip:hover{border-color:var(--scan);color:var(--scan-deep)}}
+
+.filters{display:grid;grid-template-columns:1fr 1fr;gap:10px;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px;margin-bottom:18px}
+.filters .f{display:flex;flex-direction:column;gap:5px;min-width:0}
+.filters .f.ancho{grid-column:1 / -1}
+.filters label{font-size:12px;color:var(--muted)}
+.filters input,.filters select{width:100%;min-width:0;min-height:var(--tap);
+  padding:9px 10px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--text)}
+.filters .spacer{display:none}
+#resetBtn{grid-column:1 / -1}
+
+/* ---------------- KPIs ---------------- */
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:13px 14px}
+.kpi .label{font-size:12.5px;color:var(--muted);margin-bottom:4px}
+.kpi .value{font-family:"Bricolage Grotesque",sans-serif;font-size:20px;font-weight:600;
+  letter-spacing:-.02em;overflow-wrap:anywhere}
+.kpi.primary{background:var(--ink);border-color:var(--ink);grid-column:1 / -1}
+.kpi.primary .label{color:#8FAAB3}
+.kpi.primary .value{color:#fff;font-size:26px}
+
+/* ---------------- Tarjetas ---------------- */
+.grid{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:15px}
+.card h2{font-size:15px;margin-bottom:2px}
+.card .hint{font-size:12.5px;color:var(--muted);margin:0 0 12px}
+.chart-wrap{position:relative;height:240px}
+
+/* ---------------- Tablas: tarjetas en móvil ---------------- */
+.tabla-wrap{overflow:visible}
+table{width:100%;border-collapse:collapse;font-size:14px}
+thead{display:none}
+tbody tr{display:block;border:1px solid var(--line);border-radius:9px;
+  padding:11px 13px;margin-bottom:9px;background:#fff}
+tbody tr:last-child{margin-bottom:0}
+td{display:flex;justify-content:space-between;align-items:baseline;gap:14px;
+  padding:3px 0;border:none;text-align:right}
+td::before{content:attr(data-label);color:var(--muted);font-size:12.5px;
+  text-align:left;flex:0 0 auto;font-weight:500}
+td:empty,td[data-label=""]:empty{display:none}
+td.num{font-variant-numeric:tabular-nums}
+.empty{display:block;color:var(--muted);font-size:14px;padding:22px 0;text-align:center}
+tr.vacio{border:none;padding:0}
+
+.acciones-fila{display:flex;gap:8px;width:100%;justify-content:flex-end}
+.mini{border:1px solid var(--line);background:#fff;border-radius:7px;min-height:38px;
+  padding:6px 14px;font-size:13px;color:var(--muted);cursor:pointer}
+@media (hover:hover){
+  .mini:hover{border-color:var(--scan);color:var(--scan-deep)}
+  .mini.del:hover{border-color:#C4543A;color:#C4543A}
+}
+
+.buscador{display:flex;gap:8px;margin-bottom:12px}
+.buscador input{flex:1;min-width:0;min-height:var(--tap);padding:10px 12px;
+  border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--text)}
+.buscador .btn{flex:0 0 auto;padding:10px 14px;font-size:14px}
+.mas{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.mas .btn{width:100%;font-size:14px}
+@media (min-width:600px){
+  .mas{flex-direction:row;justify-content:center}
+  .mas .btn{width:auto;min-width:150px}
+}
+
+/* ---------------- Formulario ---------------- */
+.form-grid{display:grid;grid-template-columns:1fr;gap:11px;margin-bottom:14px}
+.form-grid .f{display:flex;flex-direction:column;gap:5px}
+.form-grid label{font-size:12px;color:var(--muted)}
+.form-grid input,.form-grid select{width:100%;min-height:var(--tap);padding:10px;
+  border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--text)}
+.form-actions{display:flex;flex-direction:column;gap:10px}
+.form-actions .btn{width:100%}
+#formMsg{font-size:13.5px;color:var(--muted);text-align:center}
+#formMsg.ok{color:var(--scan-deep)}
+#formMsg.err{color:#C4543A}
+#formCard.editando{border-color:var(--scan);box-shadow:0 0 0 3px rgba(31,168,160,.14)}
+#editandoAviso{display:none;background:#E4F4F3;border:1px solid #A9DCD8;color:#0F6E6C;
+  border-radius:8px;padding:9px 12px;font-size:13.5px;margin-bottom:12px}
+
+.banner{border-radius:8px;padding:10px 13px;font-size:13.5px;margin-bottom:14px}
+.banner.warn{background:#FDF3E1;border:1px solid #F0DCB4;color:#6B4C14}
+.banner.err{background:#FBEAE5;border:1px solid #F0C4B6;color:#8A3620}
+footer{color:var(--muted);font-size:12.5px;padding-top:22px;text-align:center}
+
+/* ============================================================
+   >= 600px — tablet vertical
+   ============================================================ */
+@media (min-width:600px){
+  :root{--pad:20px}
+  .kpis{grid-template-columns:1fr 1fr}
+  .kpi.primary{grid-column:auto}
+  .kpi .value{font-size:23px}
+  .kpi.primary .value{font-size:23px}
+  .form-grid{grid-template-columns:1fr 1fr}
+  .form-actions{flex-direction:row;align-items:center}
+  .form-actions .btn{width:auto}
+  #formMsg{text-align:left}
+  .filters{grid-template-columns:repeat(3,1fr)}
+  #resetBtn{grid-column:auto}
+  .chart-wrap{height:260px}
+}
+
+/* ============================================================
+   >= 760px — las tablas vuelven a ser tablas
+   ============================================================ */
+@media (min-width:760px){
+  .tabla-wrap{overflow:auto}
+  thead{display:table-header-group}
+  table{display:table}
+  tbody{display:table-row-group}
+  tbody tr{display:table-row;border:none;border-radius:0;padding:0;margin:0}
+  th{display:table-cell;text-align:left;font-weight:500;color:var(--muted);font-size:12.5px;
+    padding:0 10px 8px 0;border-bottom:1px solid var(--line);
+    position:sticky;top:0;background:var(--panel);z-index:1}
+  td{display:table-cell;text-align:left;padding:9px 10px 9px 0;
+    border-bottom:1px solid #EEF2F3}
+  td::before{content:none}
+  td.num,th.num{text-align:right}
+  td:empty{display:table-cell}
+  tbody tr:last-child td{border-bottom:none}
+  .acciones-fila{justify-content:flex-start}
+  .empty{display:table-cell}
+}
+
+/* ============================================================
+   >= 900px — escritorio
+   ============================================================ */
+@media (min-width:900px){
+  header.top{flex-direction:row;align-items:baseline;justify-content:space-between;
+    gap:16px;padding:26px 0 18px;margin-bottom:22px;flex-wrap:wrap}
+  header.top h1{font-size:22px}
+  header.top .acciones .btn{flex:0 0 auto;font-size:15px;padding:11px 16px}
+  .kpis{grid-template-columns:repeat(4,1fr);gap:14px}
+  .kpi{padding:16px 18px}
+  .kpi .value,.kpi.primary .value{font-size:26px}
+  .grid{grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+  .card{padding:18px}
+  .chart-wrap{height:270px}
+  .form-grid{grid-template-columns:repeat(3,1fr);gap:12px}
+  .filters{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;padding:14px 16px}
+  .filters .f{min-width:150px}
+  .filters .f.ancho{grid-column:auto}
+  .filters .spacer{display:block;flex:1}
+  .filters input,.filters select{min-width:150px}
+}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="login-card">
+    <svg class="cone" viewBox="0 0 96 96" aria-hidden="true">
+      <path d="M48 8 L88 84 A44 44 0 0 1 8 84 Z" fill="none" stroke="#1FA8A0" stroke-width="2" opacity=".55"/>
+      <path d="M48 20 L74 70 A30 30 0 0 1 22 70 Z" fill="none" stroke="#1FA8A0" stroke-width="1.5" opacity=".35"/>
+      <circle cx="48" cy="58" r="9" fill="#1FA8A0" opacity=".25"/>
+      <circle cx="48" cy="58" r="3" fill="#1FA8A0"/>
+    </svg>
+    <h1>Imagenología veterinaria</h1>
+    <p class="sub">Panel de servicios · acceso privado</p>
+    <div class="field"><label for="user">Usuario</label>
+      <input id="user" type="text" autocomplete="username" autocapitalize="off" spellcheck="false"></div>
+    <div class="field"><label for="pass">Contraseña</label>
+      <input id="pass" type="password" autocomplete="current-password"></div>
+    <button class="btn" id="loginBtn">Entrar</button>
+    <div id="loginError" role="alert"></div>
+  </div>
+</div>
+
+<div id="app">
+  <header class="top">
+    <div><h1>Panel de servicios</h1><div class="who" id="periodLabel">Cargando…</div></div>
+    <div class="acciones">
+      <button class="btn btn-ghost" id="reloadBtn">Actualizar datos</button>
+      <button class="btn btn-ghost" id="logoutBtn">Salir</button>
+    </div>
+  </header>
+
+  <div class="banner warn" id="aviso" style="display:none"></div>
+
+  <div class="chips" id="chips">
+    <button class="chip" data-rango="30">Últimos 30 días</button>
+    <button class="chip" data-rango="90">Últimos 3 meses</button>
+    <button class="chip" data-rango="anio">Año actual</button>
+    <button class="chip" data-rango="all">Todo</button>
+  </div>
+
+  <section class="filters">
+    <div class="f"><label for="fDesde">Desde</label><input type="date" id="fDesde"></div>
+    <div class="f"><label for="fHasta">Hasta</label><input type="date" id="fHasta"></div>
+    <div class="f ancho"><label for="fEstudio">Estudio</label><select id="fEstudio"><option value="">Todos</option></select></div>
+    <div class="f ancho"><label for="fRemitente">Remitente</label><select id="fRemitente"><option value="">Todos</option></select></div>
+    <div class="f ancho"><label for="fEspecie">Especie</label><select id="fEspecie"><option value="">Todas</option></select></div>
+    <div class="spacer"></div>
+    <button class="btn btn-ghost" id="resetBtn">Quitar filtros</button>
+  </section>
+
+  <section class="kpis">
+    <div class="kpi primary"><div class="label">Total facturado</div><div class="value" id="kTotal">—</div></div>
+    <div class="kpi"><div class="label">Estudios realizados</div><div class="value" id="kCount">—</div></div>
+    <div class="kpi"><div class="label">Clínicas remitentes</div><div class="value" id="kRem">—</div></div>
+    <div class="kpi"><div class="label">Promedio por mes</div><div class="value" id="kMes">—</div></div>
+  </section>
+
+  <section class="card wide" style="margin-bottom:18px">
+    <h2>Facturación en el periodo</h2>
+    <p class="hint">Total por mes, según el rango filtrado.</p>
+    <div class="chart-wrap"><canvas id="chartVentas"></canvas></div>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <h2>Clínicas que más remiten</h2>
+      <p class="hint">Top 8 por facturación en el periodo.</p>
+      <div class="chart-wrap"><canvas id="chartRemitentes"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Tipos de estudio</h2>
+      <p class="hint">Cantidad por tipo de ecografía.</p>
+      <div class="chart-wrap"><canvas id="chartEstudios"></canvas></div>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <h2>Detalle por remitente</h2>
+      <p class="hint">Ordenado por facturación.</p>
+      <div class="tabla-wrap" style="max-height:340px">
+        <table><thead><tr><th>Remitente</th><th class="num">Estudios</th><th class="num">Total</th><th class="num">Último</th></tr></thead>
+        <tbody id="tblRemitentes"></tbody></table>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Detalle por estudio</h2>
+      <p class="hint">Qué se hace más y cuánto deja.</p>
+      <div class="tabla-wrap" style="max-height:340px">
+        <table><thead><tr><th>Estudio</th><th class="num">Cantidad</th><th class="num">Total</th></tr></thead>
+        <tbody id="tblEstudios"></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <section class="card wide" id="formCard" style="margin-bottom:18px">
+    <h2 id="formTitulo">Registrar un estudio</h2>
+    <p class="hint" id="formHint">Se agrega como última fila de la hoja de cálculo.</p>
+    <div id="editandoAviso"></div>
+    <div class="form-grid">
+      <div class="f"><label for="nFecha">Fecha</label><input type="date" id="nFecha"></div>
+      <div class="f"><label for="nPaciente">Paciente</label><input type="text" id="nPaciente" placeholder="Nombre del animal"></div>
+      <div class="f"><label for="nPropietario">Propietario</label><input type="text" id="nPropietario" placeholder="Nombre del dueño"></div>
+      <div class="f"><label for="nEstudio">Estudio</label><input type="text" id="nEstudio" list="dlEstudios" placeholder="Ecografía abdominal"><datalist id="dlEstudios"></datalist></div>
+      <div class="f"><label for="nRaza">Raza</label><input type="text" id="nRaza" list="dlRazas" placeholder="DPC"><datalist id="dlRazas"></datalist></div>
+      <div class="f"><label for="nEspecie">Especie</label><select id="nEspecie"><option>Canino</option><option>Felino</option><option>Equino</option><option>Bovino</option><option>Exótico</option></select></div>
+      <div class="f"><label for="nEdad">Edad</label><input type="text" id="nEdad" placeholder="7 años"></div>
+      <div class="f"><label for="nSexo">Sexo</label><select id="nSexo"><option>Macho</option><option>Hembra</option></select></div>
+      <div class="f"><label for="nRemitente">Remitente</label><input type="text" id="nRemitente" list="dlRemitentes" placeholder="Clínica que remite"><datalist id="dlRemitentes"></datalist></div>
+      <div class="f"><label for="nValor">Valor</label><input type="number" id="nValor" min="0" step="1000" value="110000"></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" id="saveBtn">Guardar estudio</button>
+      <button class="btn btn-ghost" id="cancelBtn" style="display:none">Cancelar edición</button>
+      <span id="formMsg"></span>
+    </div>
+  </section>
+
+  <section class="card wide">
+    <h2>Registro de estudios</h2>
+    <p class="hint" id="hintRegistro">Los más recientes primero.</p>
+    <div class="buscador">
+      <input type="search" id="fBuscar" placeholder="Buscar por paciente o propietario" autocomplete="off">
+      <button class="btn btn-ghost" id="limpiarBuscar" style="display:none">Limpiar</button>
+    </div>
+    <div class="tabla-wrap" style="max-height:420px">
+      <table><thead><tr><th>Fecha</th><th>Paciente</th><th>Propietario</th><th>Estudio</th><th>Raza</th><th>Especie</th><th>Remitente</th><th class="num">Valor</th><th></th></tr></thead>
+      <tbody id="tblRecientes"></tbody></table>
+    </div>
+    <div class="mas" id="masWrap" style="display:none">
+      <button class="btn btn-ghost" id="masBtn">Ver 50 más</button>
+      <button class="btn btn-ghost" id="todosBtn">Ver todos</button>
+    </div>
+  </section>
+
+  <footer>Panel privado · los datos vienen de la hoja de cálculo</footer>
+</div>
+
+<script>
+/* =====================================================================
+   CONFIGURACIÓN
+   ===================================================================== */
+const CONFIG = {
+  USER: "Imagen",
+  PASS: "Eco2626",
+
+  SHEET_ID: "10593KiCG0VTtqmON8hoqmEhqLIqp8B3nGh0FocfCv1Q",
+  HOJA: "BD_ecografias",          // solo informativo: la pestaña real la define el Apps Script
+
+  // URL /exec del Apps Script (ver apps-script.gs).
+  APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbwfLUgefgazboFZQjETj2ItO_FUro1tQy5Z6UwkAZwRKxzPVxpY34CWh16hF-kQQFTdjA/exec",
+
+  VALOR_DEFECTO: 110000,
+  MONEDA: "COP"
+};
+
+const CSV_URL = "https://docs.google.com/spreadsheets/d/" + CONFIG.SHEET_ID +
+                "/gviz/tq?tqx=out:csv&sheet=" + encodeURIComponent(CONFIG.HOJA);
+
+const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const ABREV = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+
+let DATA = [], charts = {};
+const PASO = 50;        // cuántos registros se agregan por clic en "Ver más"
+let LIMITE = PASO;      // cuántos se están mostrando en la tabla de abajo
+const el = id => document.getElementById(id);
+const fmtMoney = n => new Intl.NumberFormat("es-CO",{style:"currency",currency:CONFIG.MONEDA,maximumFractionDigits:0}).format(n||0);
+// Versión corta para los ejes, donde no cabe "$ 12.540.000"
+const fmtCorto = n => {
+  n = n || 0;
+  if(Math.abs(n) >= 1e6) return "$" + (n/1e6).toFixed(n >= 1e7 ? 0 : 1).replace(".",",") + "M";
+  if(Math.abs(n) >= 1e3) return "$" + Math.round(n/1e3) + "k";
+  return "$" + n;
+};
+const fmtNum = n => new Intl.NumberFormat("es-CO").format(Math.round(n||0));
+const esc = s => String(s ?? "").replace(/[<>&]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c])) || "—";
+
+/* ---------- Login ---------- */
+function tryLogin(){
+  if(el("user").value.trim() === CONFIG.USER && el("pass").value === CONFIG.PASS){
+    el("login").style.display = "none";
+    el("app").style.display = "block";
+    init();
+  } else {
+    el("loginError").textContent = "Usuario o contraseña incorrectos.";
+  }
+}
+el("loginBtn").addEventListener("click", tryLogin);
+["user","pass"].forEach(id => el(id).addEventListener("keydown", e => { if(e.key==="Enter") tryLogin(); }));
+el("logoutBtn").addEventListener("click", () => location.reload());
+
+/* ---------- Lectura del Sheet ----------
+   Los datos se piden al Apps Script (no al CSV público) porque necesitamos
+   el número de fila de cada registro para poder editarlo o borrarlo.
+   Se usa JSONP: una petición normal a script.google.com la bloquea CORS. */
+function jsonp(url, timeoutMs){
+  return new Promise((resolve, reject) => {
+    const cb = "cb_" + Math.random().toString(36).slice(2);
+    const tag = document.createElement("script");
+    const limpiar = () => { delete window[cb]; tag.remove(); clearTimeout(t); };
+    const t = setTimeout(() => { limpiar(); reject(new Error("timeout")); }, timeoutMs || 20000);
+    window[cb] = data => { limpiar(); resolve(data); };
+    tag.onerror = () => { limpiar(); reject(new Error("error de red")); };
+    tag.src = url + (url.includes("?") ? "&" : "?") + "callback=" + cb + "&t=" + Date.now();
+    document.body.appendChild(tag);
+  });
+}
+
+async function cargar(){
+  const r = await jsonp(CONFIG.APPS_SCRIPT_URL + "?action=list");
+  if(!r || !r.ok) throw new Error(r && r.error ? r.error : "respuesta inválida");
+  return (r.registros || []).map(o => {
+    o.VALOR = Number(o.VALOR) || 0;
+    return o;
+  }).filter(o => o.FECHA);
+}
+
+/* ---------- Init ---------- */
+async function init(){
+  el("periodLabel").textContent = "Cargando datos…";
+  try{
+    DATA = await cargar();
+    el("aviso").style.display = "none";
+    if(!DATA.length){
+      const a = el("aviso");
+      a.className = "banner warn"; a.style.display = "block";
+      a.textContent = "La hoja respondió sin registros. Revisa que tenga datos debajo del encabezado.";
+    }
+  }catch(e){
+    DATA = [];
+    const a = el("aviso");
+    a.className = "banner err"; a.style.display = "block";
+    a.textContent = "No se pudo leer la hoja: " + e.message +
+      ". Revisa que el Apps Script esté implementado con acceso “Cualquier usuario” y que la pestaña se llame “" + CONFIG.HOJA + "”.";
+  }
+
+  refrescarOpciones();
+  rangoCompleto();
+  marcarChip(null);
+  modoAlta();
+  render();
+}
+
+const uniq = a => [...new Set(a.filter(v=>v&&String(v).trim()))].sort((x,y)=>x.localeCompare(y,"es"));
+function lista(id, vals){
+  const d=el(id); d.innerHTML="";
+  vals.forEach(v=>{const o=document.createElement("option");o.value=v;d.appendChild(o);});
+}
+function rangoCompleto(){
+  const f = DATA.map(d=>d.FECHA).filter(Boolean).sort();
+  if(f.length){ el("fDesde").value=f[0]; el("fHasta").value=f[f.length-1]; }
+}
+
+/* ---------- Filtros ---------- */
+
+/** Texto sin tildes ni mayúsculas, para que "muñoz" encuentre "MUNOZ". */
+const plano = t => String(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+
+/** Rellena los selectores conservando lo que el usuario tenía elegido.
+    Se llama en cada carga: si se registra una clínica nueva, aparece sola. */
+function refrescarOpciones(){
+  const mapa = { fEstudio:"ESTUDIO", fRemitente:"REMITENTE", fEspecie:"ESPECIE" };
+  for(const [id,col] of Object.entries(mapa)){
+    const sel = el(id), antes = sel.value;
+    sel.length = 1;
+    uniq(DATA.map(d => d[col])).forEach(v => sel.add(new Option(v, v)));
+    sel.value = [...sel.options].some(o => o.value === antes) ? antes : "";
+  }
+  lista("dlEstudios", uniq(DATA.map(d=>d.ESTUDIO)));
+  lista("dlRemitentes", uniq(DATA.map(d=>d.REMITENTE)));
+  lista("dlRazas", uniq(DATA.map(d=>d.RAZA)));
+}
+
+["fDesde","fHasta","fEstudio","fRemitente","fEspecie"].forEach(id =>
+  el(id).addEventListener("change", () => { marcarChip(null); LIMITE = PASO; render(); }));
+
+// El buscador filtra mientras se escribe, con una pausa para no recalcular
+// en cada tecla (con 1.100+ registros se notaría).
+let buscarTimer;
+el("fBuscar").addEventListener("input", () => {
+  el("limpiarBuscar").style.display = el("fBuscar").value ? "inline-block" : "none";
+  clearTimeout(buscarTimer);
+  buscarTimer = setTimeout(() => { LIMITE = PASO; render(); }, 220);
+});
+el("limpiarBuscar").addEventListener("click", () => {
+  el("fBuscar").value = ""; el("limpiarBuscar").style.display = "none";
+  LIMITE = PASO; render(); el("fBuscar").focus();
+});
+
+el("resetBtn").addEventListener("click", () => {
+  ["fEstudio","fRemitente","fEspecie"].forEach(id => el(id).value = "");
+  el("fBuscar").value = "";
+  el("limpiarBuscar").style.display = "none";
+  LIMITE = PASO;
+  rangoCompleto(); marcarChip(null); render();
+});
+el("reloadBtn").addEventListener("click", init);
+
+el("masBtn").addEventListener("click", () => { LIMITE += PASO; render(); });
+el("todosBtn").addEventListener("click", () => { LIMITE = Infinity; render(); });
+
+document.querySelectorAll(".chip").forEach(btn => btn.addEventListener("click", () => {
+  const r = btn.dataset.rango;
+  const hoy = new Date();
+  const iso = d => d.toISOString().slice(0,10);
+
+  if(r === "all"){
+    rangoCompleto();
+  } else if(r === "anio"){
+    // Año calendario en curso: 1 de enero hasta el último dato (o hoy).
+    const fechas = DATA.map(d=>d.FECHA).filter(Boolean).sort();
+    const ultima = fechas.length ? fechas[fechas.length-1] : iso(hoy);
+    const anio = hoy.getFullYear();
+    el("fDesde").value = anio + "-01-01";
+    el("fHasta").value = ultima > iso(hoy) ? ultima : iso(hoy);
+  } else {
+    const desde = new Date(hoy);
+    desde.setDate(desde.getDate() - Number(r));
+    el("fDesde").value = iso(desde);
+    el("fHasta").value = iso(hoy);
+  }
+  marcarChip(btn); LIMITE = PASO; render();
+}));
+
+function marcarChip(activo){
+  document.querySelectorAll(".chip").forEach(c =>
+    c.setAttribute("aria-pressed", c === activo ? "true" : "false"));
+}
+
+/** Rango que cubre todos los datos. Si no hay datos, deja las fechas vacías
+    (sin límite) en vez de conservar un rango viejo que no filtra nada. */
+function rangoCompleto(){
+  const f = DATA.map(d=>d.FECHA).filter(Boolean).sort();
+  el("fDesde").value = f.length ? f[0] : "";
+  el("fHasta").value = f.length ? f[f.length-1] : "";
+}
+
+/** Amplía el rango visible para que un registro recién guardado se vea. */
+function asegurarVisible(fecha){
+  if(!fecha) return;
+  const d0 = el("fDesde").value, d1 = el("fHasta").value;
+  if(d0 && fecha < d0) el("fDesde").value = fecha;
+  if(d1 && fecha > d1) el("fHasta").value = fecha;
+}
+
+function filtradas(){
+  const d0 = el("fDesde").value, d1 = el("fHasta").value;
+  const est = el("fEstudio").value, rem = el("fRemitente").value, esp = el("fEspecie").value;
+
+  return DATA.filter(r => {
+    if(d0 && r.FECHA < d0) return false;
+    if(d1 && r.FECHA > d1) return false;
+    if(est && r.ESTUDIO !== est) return false;
+    if(rem && r.REMITENTE !== rem) return false;
+    if(esp && r.ESPECIE !== esp) return false;
+    return true;
+  });
+}
+
+/* El buscador solo afecta la tabla de abajo, no los KPIs ni los gráficos:
+   sirve para encontrar un estudio puntual, no para reencuadrar el análisis. */
+function buscadas(rows){
+  const q = plano(el("fBuscar").value.trim());
+  if(!q) return rows;
+  return rows.filter(r => plano(r.PACIENTE).includes(q) || plano(r.PROPIETARIO).includes(q));
+}
+
+/* ---------- Render ---------- */
+function render(){
+  const rows = filtradas();
+  const total = rows.reduce((s,r)=>s+r.VALOR,0);
+
+  const porMes = {};
+  rows.forEach(r => { const k=r.FECHA.slice(0,7); porMes[k]=(porMes[k]||0)+r.VALOR; });
+  const meses = Object.keys(porMes).sort();
+
+  el("kTotal").textContent = fmtMoney(total);
+  el("kCount").textContent = fmtNum(rows.length);
+  el("kRem").textContent   = fmtNum(uniq(rows.map(r=>r.REMITENTE)).length);
+  el("kMes").textContent   = meses.length ? fmtMoney(total/meses.length) : fmtMoney(0);
+  const d0 = el("fDesde").value, d1 = el("fHasta").value;
+  const rango = (d0 || d1) ? (" · " + (d0 || "inicio") + " a " + (d1 || "hoy")) : "";
+  el("periodLabel").textContent = rows.length
+    ? fmtNum(rows.length) + " estudios" + rango
+    : (DATA.length ? "Ningún estudio coincide con los filtros" : "Sin datos cargados");
+
+  grafico("chartVentas","line",{
+    labels: meses.map(etiquetaMes),
+    datasets:[{label:"Facturado",data:meses.map(m=>porMes[m]),borderColor:"#0F6E6C",
+      backgroundColor:"rgba(31,168,160,.16)",fill:true,tension:.3,pointRadius:3,pointBackgroundColor:"#0F6E6C"}]
+  }, true);
+
+  const rem = agrupar(rows,"REMITENTE");
+  const est = agrupar(rows,"ESTUDIO");
+
+  grafico("chartRemitentes","bar",{
+    labels: rem.slice(0,8).map(r=>r.key),
+    datasets:[{label:"Facturado",data:rem.slice(0,8).map(r=>r.total),backgroundColor:"#1FA8A0",borderRadius:4}]
+  }, true, "y");
+
+  grafico("chartEstudios","bar",{
+    labels: est.slice(0,8).map(r=>r.key),
+    datasets:[{label:"Estudios",data:est.slice(0,8).map(r=>r.count),backgroundColor:"#E8A33D",borderRadius:4}]
+  }, false, "y");
+
+  tabla("tblRemitentes", rem, r =>
+    "<td data-label='Remitente'>"+esc(r.key)+"</td>"+
+    "<td class='num' data-label='Estudios'>"+fmtNum(r.count)+"</td>"+
+    "<td class='num' data-label='Total'>"+fmtMoney(r.total)+"</td>"+
+    "<td class='num' data-label='Último'>"+(r.ultima||"—")+"</td>", 4);
+
+  tabla("tblEstudios", est, r =>
+    "<td data-label='Estudio'>"+esc(r.key)+"</td>"+
+    "<td class='num' data-label='Cantidad'>"+fmtNum(r.count)+"</td>"+
+    "<td class='num' data-label='Total'>"+fmtMoney(r.total)+"</td>", 3);
+
+  // Orden: fecha descendente y, dentro del mismo día, la fila más nueva de la
+  // hoja primero. Sin el desempate por _fila, un registro agregado hoy quedaba
+  // mezclado al azar entre los demás del mismo día en vez de salir de primero.
+  const encontrados = buscadas(rows).sort((a,b) =>
+    b.FECHA.localeCompare(a.FECHA) || (b._fila||0) - (a._fila||0));
+
+  const visibles = encontrados.slice(0, LIMITE);
+  tabla("tblRecientes", visibles, r =>
+    "<td data-label='Fecha'>"+r.FECHA+"</td>"+
+    "<td data-label='Paciente'>"+esc(r.PACIENTE)+"</td>"+
+    "<td data-label='Propietario'>"+esc(r.PROPIETARIO)+"</td>"+
+    "<td data-label='Estudio'>"+esc(r.ESTUDIO)+"</td>"+
+    "<td data-label='Raza'>"+esc(r.RAZA)+"</td>"+
+    "<td data-label='Especie'>"+esc(r.ESPECIE)+"</td>"+
+    "<td data-label='Remitente'>"+esc(r.REMITENTE)+"</td>"+
+    "<td class='num' data-label='Valor'>"+fmtMoney(r.VALOR)+"</td>" +
+    "<td data-label=''><div class='acciones-fila'>" +
+      (r._fila
+        ? "<button class='mini' data-editar='"+r._fila+"'>Editar</button>" +
+          "<button class='mini del' data-borrar='"+r._fila+"'>Borrar</button>"
+        : "") +
+    "</div></td>", 9);
+
+  // Encabezado y botones de paginación
+  const q = el("fBuscar").value.trim();
+  el("hintRegistro").textContent = q
+    ? (encontrados.length
+        ? "Mostrando " + fmtNum(visibles.length) + " de " + fmtNum(encontrados.length) + " coincidencias con “" + q + "”."
+        : "Ningún paciente o propietario coincide con “" + q + "”.")
+    : "Mostrando " + fmtNum(visibles.length) + " de " + fmtNum(encontrados.length) + " estudios del periodo, del más reciente al más antiguo.";
+
+  const faltan = encontrados.length - visibles.length;
+  el("masWrap").style.display = faltan > 0 ? "" : "none";
+  el("masBtn").textContent = "Ver " + Math.min(PASO, faltan) + " más";
+  el("todosBtn").textContent = "Ver todos (" + fmtNum(encontrados.length) + ")";
+
+  document.querySelectorAll("[data-editar]").forEach(b =>
+    b.addEventListener("click", () => abrirEdicion(Number(b.dataset.editar))));
+  document.querySelectorAll("[data-borrar]").forEach(b =>
+    b.addEventListener("click", () => borrar(Number(b.dataset.borrar))));
+}
+
+function agrupar(rows, campo){
+  const m = {};
+  rows.forEach(r => {
+    const k = r[campo] || "Sin dato";
+    if(!m[k]) m[k] = {key:k,total:0,count:0,ultima:""};
+    m[k].total += r.VALOR; m[k].count++;
+    if(r.FECHA > m[k].ultima) m[k].ultima = r.FECHA;
+  });
+  return Object.values(m).sort((a,b)=>b.total-a.total);
+}
+
+function tabla(id, items, fn, cols){
+  el(id).innerHTML = items.length
+    ? items.map(i=>"<tr>"+fn(i)+"</tr>").join("")
+    : "<tr class='vacio'><td colspan='"+cols+"' class='empty'>Sin estudios para este filtro.</td></tr>";
+}
+
+function etiquetaMes(m){
+  const p = m.split("-");
+  return ABREV[+p[1]-1] + " " + p[0];
+}
+
+function grafico(canvasId, type, data, money, indexAxis){
+  if(charts[canvasId]) charts[canvasId].destroy();
+  const horiz = indexAxis === "y";
+
+  // En barras horizontales el alto depende de cuántas barras hay: con poco
+  // ancho (teléfono) las etiquetas se amontonan si el contenedor es fijo.
+  if(horiz){
+    const n = data.labels.length || 1;
+    el(canvasId).parentElement.style.height = Math.max(180, n * 38) + "px";
+  }
+  charts[canvasId] = new Chart(el(canvasId), {
+    type, data,
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      indexAxis: horiz ? "y" : "x",
+      plugins:{ legend:{display:false},
+        tooltip:{callbacks:{label: c => (money?fmtMoney:fmtNum)(horiz ? c.parsed.x : c.parsed.y)}}},
+      scales:{
+        x:{grid:{color:"#EEF2F3"},ticks:{color:"#5E7480",
+          font:{size: window.innerWidth < 600 ? 11 : 12},
+          maxRotation: window.innerWidth < 600 ? 60 : 0,
+          callback:function(v){ return horiz ? (money?fmtCorto(v):fmtNum(v)) : this.getLabelForValue(v); }}},
+        y:{grid:{color:"#EEF2F3"},ticks:{color:"#5E7480",autoSkip:false,
+          font:{size: window.innerWidth < 600 ? 11 : 12},
+          callback:function(v){
+            if(!horiz) return money?fmtCorto(v):fmtNum(v);
+            const t = this.getLabelForValue(v);
+            const max = window.innerWidth < 600 ? 16 : 26;
+            return t.length > max ? t.slice(0, max-1) + "…" : t;
+          }}}
+      }
+    }
+  });
+}
+
+/* ---------- Crear, editar y eliminar ----------
+   El POST va con mode:"no-cors", que es lo único que permite escribir en
+   Apps Script desde una página estática. La contra es que el navegador no
+   puede leer la respuesta, así que después de cada escritura se recargan los
+   datos desde la hoja y se verifica el resultado contra lo que hay allí. */
+
+let EDITANDO = null;   // {fila, original:{FECHA, PACIENTE}} o null si es alta
+
+const CAMPOS = {
+  FECHA:"nFecha", PACIENTE:"nPaciente", PROPIETARIO:"nPropietario", ESTUDIO:"nEstudio",
+  RAZA:"nRaza", ESPECIE:"nEspecie", EDAD:"nEdad", SEXO:"nSexo",
+  REMITENTE:"nRemitente", VALOR:"nValor"
+};
+
+function leerFormulario(){
+  const fecha = el("nFecha").value;
+  const f = { FECHA: fecha, MES: fecha ? MESES[+fecha.slice(5,7)-1] + " " + fecha.slice(0,4) : "" };
+  for(const [col,id] of Object.entries(CAMPOS)){
+    if(col === "FECHA") continue;
+    f[col] = el(id).value.trim();
+  }
+  f.VALOR = Number(el("nValor").value || 0);
+  return f;
+}
+
+function limpiarFormulario(){
+  ["nPaciente","nPropietario","nRaza","nEdad","nRemitente"].forEach(id => el(id).value = "");
+  el("nValor").value = CONFIG.VALOR_DEFECTO;
+}
+
+function modoAlta(){
+  EDITANDO = null;
+  el("formCard").classList.remove("editando");
+  el("formTitulo").textContent = "Registrar un estudio";
+  el("formHint").textContent = "Se agrega como última fila de la hoja de cálculo.";
+  el("editandoAviso").style.display = "none";
+  el("saveBtn").textContent = "Guardar estudio";
+  el("cancelBtn").style.display = "none";
+  el("nFecha").value = new Date().toISOString().slice(0,10);
+  limpiarFormulario();
+}
+
+function abrirEdicion(fila){
+  const r = DATA.find(d => d._fila === fila);
+  if(!r) return;
+  EDITANDO = { fila, original: { FECHA: r.FECHA, PACIENTE: r.PACIENTE } };
+
+  el("nFecha").value = r.FECHA;
+  for(const [col,id] of Object.entries(CAMPOS)){
+    if(col === "FECHA") continue;
+    el(id).value = r[col] || "";
+  }
+  el("nValor").value = r.VALOR || CONFIG.VALOR_DEFECTO;
+
+  el("formCard").classList.add("editando");
+  el("formTitulo").textContent = "Editar estudio";
+  el("formHint").textContent = "Los cambios reemplazan la fila en la hoja de cálculo.";
+  el("editandoAviso").style.display = "block";
+  el("editandoAviso").textContent = "Editando: " + (r.PACIENTE || "sin nombre") + " · " + r.FECHA + " (fila " + fila + " de la hoja).";
+  el("saveBtn").textContent = "Guardar cambios";
+  el("cancelBtn").style.display = "inline-block";
+  el("formMsg").textContent = "";
+  el("formCard").scrollIntoView({ behavior:"smooth", block:"center" });
+}
+
+el("cancelBtn").addEventListener("click", () => { modoAlta(); el("formMsg").textContent = ""; });
+
+async function enviar(payload){
+  await fetch(CONFIG.APPS_SCRIPT_URL, {
+    method:"POST", mode:"no-cors",
+    headers:{"Content-Type":"text/plain;charset=utf-8"},
+    body: JSON.stringify(payload)
+  });
+  await new Promise(r => setTimeout(r, 1200));   // margen para que el Sheet escriba
+  DATA = await cargar();
+  refrescarOpciones();      // una clínica nueva debe aparecer en el filtro
+  asegurarVisible(payload.FECHA);   // y el registro debe caer dentro del rango visible
+  render();
+}
+
+/* --- Guardar (alta o edición) --- */
+el("saveBtn").addEventListener("click", async () => {
+  const msg = el("formMsg");
+  const fila = leerFormulario();
+
+  if(!fila.FECHA || !fila.PACIENTE || !fila.ESTUDIO || !fila.VALOR){
+    msg.className = "err"; msg.textContent = "Completa fecha, paciente, estudio y valor.";
+    return;
+  }
+  if(!CONFIG.APPS_SCRIPT_URL){
+    msg.className = "err"; msg.textContent = "Falta la URL del Apps Script en la configuración.";
+    return;
+  }
+
+  const editando = EDITANDO;
+  const payload = editando
+    ? Object.assign({ action:"update", _fila: editando.fila, _original: editando.original }, fila)
+    : Object.assign({ action:"create", FUENTE:"panel" }, fila);
+
+  el("saveBtn").disabled = true;
+  msg.className = ""; msg.textContent = editando ? "Guardando cambios…" : "Guardando…";
+
+  try{
+    const antes = DATA.length;
+    await enviar(payload);
+
+    // Verificación contra lo que quedó realmente en la hoja
+    if(editando){
+      const r = DATA.find(d => d._fila === editando.fila);
+      const ok = r && r.PACIENTE === fila.PACIENTE && r.FECHA === fila.FECHA && r.VALOR === fila.VALOR;
+      msg.className = ok ? "ok" : "err";
+      msg.textContent = ok
+        ? "Cambios guardados en la hoja."
+        : "La hoja no reflejó el cambio. Puede que otra persona la haya modificado; actualiza los datos y reintenta.";
+      if(ok) modoAlta();
+    }else{
+      const ok = DATA.length > antes;
+      msg.className = ok ? "ok" : "err";
+      msg.textContent = ok
+        ? "Estudio guardado en la hoja."
+        : "No se encontró el registro en la hoja. Revisa el Apps Script y reintenta.";
+      if(ok) limpiarFormulario();
+    }
+  }catch(e){
+    msg.className = "err";
+    msg.textContent = "Se envió pero no se pudo confirmar: " + e.message + ". Actualiza los datos para verificar.";
+  }finally{
+    el("saveBtn").disabled = false;
+  }
+});
+
+/* --- Eliminar --- */
+async function borrar(fila){
+  const r = DATA.find(d => d._fila === fila);
+  if(!r) return;
+  if(!confirm("¿Eliminar el estudio de " + (r.PACIENTE || "sin nombre") + " del " + r.FECHA + "?\n\nSe borra la fila " + fila + " de la hoja de cálculo y no se puede deshacer.")) return;
+
+  const msg = el("formMsg");
+  msg.className = ""; msg.textContent = "Eliminando…";
+  try{
+    await enviar({ action:"delete", _fila: fila, _original:{ FECHA:r.FECHA, PACIENTE:r.PACIENTE } });
+    const sigue = DATA.some(d => d._fila === fila && d.PACIENTE === r.PACIENTE && d.FECHA === r.FECHA);
+    msg.className = sigue ? "err" : "ok";
+    msg.textContent = sigue
+      ? "No se pudo eliminar. Actualiza los datos y reintenta."
+      : "Estudio eliminado de la hoja.";
+    if(EDITANDO && EDITANDO.fila === fila) modoAlta();
+  }catch(e){
+    msg.className = "err";
+    msg.textContent = "No se pudo confirmar la eliminación: " + e.message;
+  }
+}
+</script>
+</body>
+</html>
